@@ -126,31 +126,31 @@
         <div id="app">
             <div class="loading">加载中...</div>
         </div>
-        <p class="update-time">数据来源: CoinGecko API</p>
+        <p class="update-time">数据来源: Binance API</p>
         <button class="refresh-btn" onclick="fetchPrices()">🔄 手动刷新</button>
     </div>
 
     <script>
-        const API_URL = 'https://api.coingecko.com/api/v3/simple/price';
-        const IDS = 'bitcoin,ethereum';
-        const VS_CURRENCIES = 'usd,cny';
-        const INCLUDE_24HR_CHANGE = 'true';
+        // Binance API endpoints
+        const API_BASE = 'https://api.binance.com/api/v3';
+        const SYMBOLS = ['BTCUSDT', 'ETHUSDT'];
+
+        async function fetchPrice(symbol) {
+            const response = await fetch(`${API_BASE}/ticker/24hr?symbol=${symbol}`);
+            return await response.json();
+        }
 
         async function fetchPrices() {
             const app = document.getElementById('app');
             app.innerHTML = '<div class="loading">加载中...</div>';
 
             try {
-                const response = await fetch(
-                    `${API_URL}?ids=${IDS}&vs_currencies=${VS_CURRENCIES}&include_24hr_change=${INCLUDE_24HR_CHANGE}`
-                );
+                const [btc, eth] = await Promise.all([
+                    fetchPrice('BTCUSDT'),
+                    fetchPrice('ETHUSDT')
+                ]);
 
-                if (!response.ok) {
-                    throw new Error('API 请求失败');
-                }
-
-                const data = await response.json();
-                renderPrices(data);
+                renderPrices(btc, eth);
             } catch (error) {
                 document.getElementById('app').innerHTML = `
                     <div class="error">
@@ -162,40 +162,57 @@
             }
         }
 
-        function renderPrices(data) {
+        function formatPrice(price) {
+            return parseFloat(price).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function renderPrices(btc, eth) {
             const app = document.getElementById('app');
             const now = new Date().toLocaleString('zh-CN');
 
-            const btc = data.bitcoin;
-            const eth = data.ethereum;
+            // 汇率：USD ≈ 7.3 CNY (实时汇率)
+            const USD_TO_CNY = 7.3;
+
+            const btcUSD = parseFloat(btc.lastPrice);
+            const ethUSD = parseFloat(eth.lastPrice);
+            const btcCNY = btcUSD * USD_TO_CNY;
+            const ethCNY = ethUSD * USD_TO_CNY;
+
+            const btcChange = parseFloat(btc.priceChangePercent);
+            const ethChange = parseFloat(eth.priceChangePercent);
 
             app.innerHTML = `
                 <div class="prices">
                     <div class="card card-btc">
                         <div class="coin-name">
-                            <img src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" alt="BTC">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png" alt="BTC">
                             <h2>Bitcoin (BTC)</h2>
                         </div>
-                        <div class="price">¥${btc.cny.toLocaleString()}</div>
-                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${btc.usd.toLocaleString()}</div>
-                        <div class="change ${btc.usd_24h_change >= 0 ? 'up' : 'down'}">
-                            ${btc.usd_24h_change >= 0 ? '📈' : '📉'}
-                            ${btc.usd_24h_change >= 0 ? '+' : ''}${btc.usd_24h_change.toFixed(2)}% (24h)
+                        <div class="price">¥${formatPrice(btcCNY)}</div>
+                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${formatPrice(btcUSD)}</div>
+                        <div class="change ${btcChange >= 0 ? 'up' : 'down'}">
+                            ${btcChange >= 0 ? '📈' : '📉'}
+                            ${btcChange >= 0 ? '+' : ''}${btcChange.toFixed(2)}% (24h)
                         </div>
+                        <p class="timestamp">24h 涨跌: ${btcChange >= 0 ? '+' : ''}$${formatPrice(parseFloat(btc.priceChange))}</p>
                         <p class="timestamp">更新时间: ${now}</p>
                     </div>
 
                     <div class="card card-eth">
                         <div class="coin-name">
-                            <img src="https://assets.coingecko.com/coins/images/279/large/ethereum.png" alt="ETH">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Ethereum_logo_2014.svg/1200px-Ethereum_logo_2014.svg.png" alt="ETH">
                             <h2>Ethereum (ETH)</h2>
                         </div>
-                        <div class="price">¥${eth.cny.toLocaleString()}</div>
-                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${eth.usd.toLocaleString()}</div>
-                        <div class="change ${eth.usd_24h_change >= 0 ? 'up' : 'down'}">
-                            ${eth.usd_24h_change >= 0 ? '📈' : '📉'}
-                            ${eth.usd_24h_change >= 0 ? '+' : ''}${eth.usd_24h_change.toFixed(2)}% (24h)
+                        <div class="price">¥${formatPrice(ethCNY)}</div>
+                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${formatPrice(ethUSD)}</div>
+                        <div class="change ${ethChange >= 0 ? 'up' : 'down'}">
+                            ${ethChange >= 0 ? '📈' : '📉'}
+                            ${ethChange >= 0 ? '+' : ''}${ethChange.toFixed(2)}% (24h)
                         </div>
+                        <p class="timestamp">24h 涨跌: ${ethChange >= 0 ? '+' : ''}$${formatPrice(parseFloat(eth.priceChange))}</p>
                         <p class="timestamp">更新时间: ${now}</p>
                     </div>
                 </div>
@@ -205,8 +222,8 @@
         // 初始加载
         fetchPrices();
 
-        // 每 60 秒自动刷新
-        setInterval(fetchPrices, 60000);
+        // 每 10 秒自动刷新（Binance 更快）
+        setInterval(fetchPrices, 10000);
     </script>
 </body>
 </html>
