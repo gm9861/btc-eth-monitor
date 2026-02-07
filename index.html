@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC/ETH 实时价格监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+               h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        .prices {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-btc {
+            border-left: 4px solid #f7931a;
+        }
+        .card-eth {
+            border-left: 4px solid #627eea;
+        }
+        .coin-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .coin-name img {
+            width: 40px;
+            height: 40px;
+        }
+        .coin-name h2 {
+            color: #fff;
+            font-size: 1.5rem;
+        }
+        .price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .change {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        .change.up {
+            color: #00c853;
+        }
+        .change.down {
+            color: #ff1744;
+        }
+        .timestamp {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+        .loading {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 50px;
+        }
+        .error {
+            text-align: center;
+            color: #ff1744;
+            padding: 50px;
+        }
+        .update-time {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 30px;
+            font-size: 0.9rem;
+        }
+        .refresh-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 BTC/ETH 实时价格监控</h1>
+        <div id="app">
+            <div class="loading">加载中...</div>
+        </div>
+        <p class="update-time">数据来源: CoinGecko API</p>
+        <button class="refresh-btn" onclick="fetchPrices()">🔄 手动刷新</button>
+    </div>
+
+    <script>
+        const API_URL = 'https://api.coingecko.com/api/v3/simple/price';
+        const IDS = 'bitcoin,ethereum';
+        const VS_CURRENCIES = 'usd,cny';
+        const INCLUDE_24HR_CHANGE = 'true';
+
+        async function fetchPrices() {
+            const app = document.getElementById('app');
+            app.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const response = await fetch(
+                    `${API_URL}?ids=${IDS}&vs_currencies=${VS_CURRENCIES}&include_24hr_change=${INCLUDE_24HR_CHANGE}`
+                );
+
+                if (!response.ok) {
+                    throw new Error('API 请求失败');
+                }
+
+                const data = await response.json();
+                renderPrices(data);
+            } catch (error) {
+                document.getElementById('app').innerHTML = `
+                    <div class="error">
+                        <p>❌ 获取价格失败</p>
+                        <p>${error.message}</p>
+                        <button class="refresh-btn" onclick="fetchPrices()">重试</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderPrices(data) {
+            const app = document.getElementById('app');
+            const now = new Date().toLocaleString('zh-CN');
+
+            const btc = data.bitcoin;
+            const eth = data.ethereum;
+
+            app.innerHTML = `
+                <div class="prices">
+                    <div class="card card-btc">
+                        <div class="coin-name">
+                            <img src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" alt="BTC">
+                            <h2>Bitcoin (BTC)</h2>
+                        </div>
+                        <div class="price">¥${btc.cny.toLocaleString()}</div>
+                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${btc.usd.toLocaleString()}</div>
+                        <div class="change ${btc.usd_24h_change >= 0 ? 'up' : 'down'}">
+                            ${btc.usd_24h_change >= 0 ? '📈' : '📉'}
+                            ${btc.usd_24h_change >= 0 ? '+' : ''}${btc.usd_24h_change.toFixed(2)}% (24h)
+                        </div>
+                        <p class="timestamp">更新时间: ${now}</p>
+                    </div>
+
+                    <div class="card card-eth">
+                        <div class="coin-name">
+                            <img src="https://assets.coingecko.com/coins/images/279/large/ethereum.png" alt="ETH">
+                            <h2>Ethereum (ETH)</h2>
+                        </div>
+                        <div class="price">¥${eth.cny.toLocaleString()}</div>
+                        <div class="price" style="font-size: 1.5rem; opacity: 0.8;">$${eth.usd.toLocaleString()}</div>
+                        <div class="change ${eth.usd_24h_change >= 0 ? 'up' : 'down'}">
+                            ${eth.usd_24h_change >= 0 ? '📈' : '📉'}
+                            ${eth.usd_24h_change >= 0 ? '+' : ''}${eth.usd_24h_change.toFixed(2)}% (24h)
+                        </div>
+                        <p class="timestamp">更新时间: ${now}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 初始加载
+        fetchPrices();
+
+        // 每 60 秒自动刷新
+        setInterval(fetchPrices, 60000);
+    </script>
+</body>
+</html>
